@@ -8,6 +8,7 @@ import type { DistributionRepositoryPort } from '../../../application/use-cases/
 import {
   distributionCreateInputSchema,
   distributionMembersInputSchema,
+  distributionPatchInputSchema,
 } from '../../../contracts';
 import { bumpConfigVersion } from '../../../services/config-version';
 import { AppError } from '../../../domain/errors/app-error';
@@ -15,7 +16,7 @@ import type { Logger } from '../../../infrastructure/observability/logger';
 import type { PrismaClient } from '@prisma/client';
 import type { LuxonClock } from '../../../infrastructure/time/luxon-clock';
 import { BrokerService } from '../../../services/broker.service';
-import { sendSuccess } from '../middleware/error-handler';
+import { sendError, sendSuccess } from '../middleware/error-handler';
 import { PrismaBrokerRoutingRepository } from '../../../infrastructure/persistence/prisma/prisma-broker-routing.repository';
 import { selectBroker } from '../../../domain/services/select-broker';
 import { Broker } from '../../../domain/entities/broker.entity';
@@ -99,7 +100,24 @@ export function distributionRoutes(deps: DistributionDeps): Router {
   router.post('/', async (req, res) => {
     const input = distributionCreateInputSchema.parse(req.body);
     const useCase = new CreateDistributionUseCase(repo);
-    const created = await useCase.execute(input);
+    let created;
+    try {
+      created = await useCase.execute(input);
+    } catch (err) {
+      // Racer lost the singleton UNIQUE insert → contract 409 (§15).
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        sendError(
+          res,
+          'DISTRIBUTION_ALREADY_EXISTS',
+          'A distribution already exists. Only one distribution can be created.',
+        );
+        return;
+      }
+      throw err;
+    }
     sendSuccess(res, 201, created);
   });
 
@@ -133,6 +151,52 @@ export function distributionRoutes(deps: DistributionDeps): Router {
       });
     }
     sendSuccess(res, 200, { distribution, members });
+  });
+
+  // PATCH /api/distribution — rename / change reference timezone (§15).
+  router.patch('/', async (req, res) => {
+    const parsed = distributionPatchInputSchema.safeParse(req.body);
+    if (!parsed.success) {
+      sendError(res, 'VALIDATION_ERROR', 'Validation failed.', {
+        issues: parsed.error.issues.map((i) => i.message),
+      });
+      return;
+    }
+    try {
+      const updated = await deps.prisma.$transaction(async (tx) => {
+        const dist = await tx.distribution.findFirst({
+          where: { singleton: true },
+        });
+        if (dist === null) {
+          throw new AppError('NOT_FOUND', 'No distribution exists yet.');
+        }
+        const data: { name?: string; timezone?: string } = {};
+        if (parsed.data.name !== undefined) data.name = parsed.data.name;
+        if (parsed.data.timezone !== undefined) {
+          data.timezone = parsed.data.timezone;
+        }
+        const row = await tx.distribution.update({
+          where: { id: dist.id },
+          data,
+        });
+        await bumpConfigVersion(tx);
+        return row;
+      });
+      deps.log.info('distribution.updated', undefined, {
+        distributionId: updated.id,
+      });
+      sendSuccess(res, 200, {
+        id: updated.id,
+        name: updated.name,
+        timezone: updated.timezone,
+      });
+    } catch (err) {
+      if (err instanceof AppError) {
+        sendError(res, err.code, err.message);
+        return;
+      }
+      throw err;
+    }
   });
 
   // POST /api/distribution/simulate — dry-run selection (Tier 2, T044):

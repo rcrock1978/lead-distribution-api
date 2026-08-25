@@ -17,6 +17,12 @@ const envSchema = z.object({
 
   PUBLIC_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(30),
 
+  // §17.3 — previously hardcoded; now deployment-tunable.
+  JWT_EXPIRES_IN: z.string().regex(/^\d+(s|m|h|d)$/, 'JWT_EXPIRES_IN must look like 24h').default('24h'),
+  OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(500),
+  OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().default(10),
+  OUTBOX_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
+
   WORKER_ID: z.string().min(1).default('worker-1'),
 
   CONFIG_CACHE: z

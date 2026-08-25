@@ -10,6 +10,7 @@ import {
 } from '../../../application/use-cases/capture-lead.use-case';
 import type { Logger } from '../../../infrastructure/observability/logger';
 import type { MetricsRegistry } from '../../../infrastructure/observability/metrics';
+import { currentContext } from '../../../infrastructure/observability/correlation';
 
 export interface PublicLeadsDeps {
   log: Logger;
@@ -103,7 +104,9 @@ export function publicLeadsRoutes(deps: PublicLeadsDeps): Router {
     const traceId =
       typeof headerTrace === 'string' && /^[0-9a-f]{32}$/i.test(headerTrace)
         ? headerTrace.toLowerCase()
-        : randomUUID().replaceAll('-', '');
+        : // No edge-supplied id: reuse THIS request's correlation id so the
+          // envelope, the Lead row, and the Outbox row always agree.
+          (currentContext()?.traceId ?? randomUUID().replaceAll('-', ''));
 
     const parsed = submissionInputSchema.safeParse(req.body);
     if (!parsed.success) {

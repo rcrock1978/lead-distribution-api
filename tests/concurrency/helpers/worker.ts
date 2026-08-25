@@ -31,7 +31,10 @@ const silentLog: Logger = {
  */
 export function startTestWorker(
   app: TestApp,
-  opts: { pollIntervalMs?: number } = {},
+  opts: {
+    pollIntervalMs?: number;
+    log?: Logger;
+  } = {},
 ): OutboxConsumer {
   const clock = new LuxonClock();
   const routeLeadUseCase = new RouteLeadUseCase({
@@ -45,7 +48,7 @@ export function startTestWorker(
   // Structural subset of Container consumed by routeLeadHandler.
   const handlerDeps = {
     prisma: app.prisma,
-    log: silentLog,
+    log: opts.log ?? silentLog,
     metrics: new MetricsRegistry(),
     routeLeadUseCase,
   };
@@ -54,7 +57,7 @@ export function startTestWorker(
   ]);
   const consumer = new OutboxConsumer({
     prisma: app.prisma,
-    log: silentLog,
+    log: opts.log ?? silentLog,
     workerId: `worker-concurrency-${Math.random().toString(36).slice(2, 8)}`,
     version: 'test',
     handlers,

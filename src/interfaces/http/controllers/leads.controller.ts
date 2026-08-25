@@ -182,7 +182,7 @@ export function leadsRoutes(deps: LeadsDeps): Router {
       }
       throw err;
     }
-    deps.log.info('lead.manually_assigned', undefined, {
+    deps.log.info('lead.assigned.manual', undefined, {
       leadId: id,
       brokerId: parsed.data.brokerId,
     });

@@ -5,11 +5,31 @@ export interface JwtPayload {
   email: string;
 }
 
-export class JwtService {
-  constructor(private readonly secret: string) {}
+export function expiresToSeconds(expiresIn: string): number {
+  const m = /^(\d+)(s|m|h|d)$/.exec(expiresIn);
+  if (!m) return 60 * 60 * 24;
+  const n = Number(m[1]);
+  const units: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400 };
+  const unit = m[2] as string;
+  return n * (units[unit] ?? 86400);
+}
 
-  sign(payload: JwtPayload, expiresIn: NonNullable<jwt.SignOptions['expiresIn']> = '24h'): string {
-    return jwt.sign(payload, this.secret, { algorithm: 'HS256', expiresIn });
+export class JwtService {
+  constructor(
+    private readonly secret: string,
+    private readonly expiresIn: string = '24h',
+  ) {}
+
+  sign(payload: JwtPayload): string {
+    return jwt.sign(payload, this.secret, {
+      algorithm: 'HS256',
+      expiresIn: this.expiresIn as NonNullable<jwt.SignOptions['expiresIn']>,
+    });
+  }
+
+  /** Cookie lifetime mirrors the token lifetime (§17.3). */
+  get maxAgeSeconds(): number {
+    return expiresToSeconds(this.expiresIn);
   }
 
   /** Signature + expiry only — NO database lookup on the hot path (D5/D14). */

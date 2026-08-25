@@ -14,7 +14,6 @@ export type MessageHandler = (payload: unknown, meta: {
 
 /** Backoff schedule after failure N (research D11 / data-model.md): 1s→4s→16s→64s→256s. */
 const BACKOFF_MS = [1_000, 4_000, 16_000, 64_000, 256_000];
-const MAX_ATTEMPTS = 5;
 const STALE_PROCESSING_MS = 5 * 60_000;
 
 /**
@@ -40,6 +39,8 @@ export class OutboxConsumer {
       version: string;
       handlers: Map<string, MessageHandler>;
       pollIntervalMs?: number;
+      batchSize?: number;
+      maxAttempts?: number;
     },
   ) {}
 
@@ -133,7 +134,7 @@ export class OutboxConsumer {
         SELECT id FROM outbox
         WHERE status = 'PENDING' AND availableAt <= NOW(3)
         ORDER BY availableAt ASC
-        LIMIT 10
+        LIMIT ${this.deps.batchSize ?? 10}
         FOR UPDATE SKIP LOCKED`;
       if (rows.length === 0) return [];
       const claimedIds = rows.map((r) => r.id);
@@ -182,7 +183,7 @@ export class OutboxConsumer {
           log.info('outbox.processed', undefined, { type: msg.type });
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : String(err);
-          if (msg.attempts >= MAX_ATTEMPTS) {
+          if (msg.attempts >= (this.deps.maxAttempts ?? 5)) {
             await this.deps.prisma.outbox.update({
               where: { id: msg.id },
               data: { status: 'DEAD', lastError: errorMessage.slice(0, 2000) },
@@ -207,10 +208,12 @@ export class OutboxConsumer {
                 lastError: errorMessage.slice(0, 2000),
               },
             });
-            log.warn('outbox.failed', 'processing failed, will retry', {
-              type: msg.type,
+            log.warn('outbox.retry', 'processing failed, will retry', {
+              messageId: msg.id,
               attempts: msg.attempts,
-              retryInMs: jittered,
+              backoffMs:
+                BACKOFF_MS[Math.min(msg.attempts, BACKOFF_MS.length) - 1] ??
+                BACKOFF_MS[BACKOFF_MS.length - 1],
               lastError: errorMessage,
             });
           }

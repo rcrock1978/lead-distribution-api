@@ -33,7 +33,8 @@ describe('ops endpoints', () => {
       histograms: Record<string, { p50: number; p95: number; p99: number; count: number }>;
     } }).data;
 
-    expect(data.gauges['outbox_pending_depth']).toBe(0);
+    expect(data.gauges['outbox_depth{status="pending"}']).toBe(0);
+    expect(data.gauges['outbox_oldest_pending_age_ms']).toBeDefined();
     const mw = Object.keys(data.histograms).find((k) =>
       k.startsWith('middleware_duration_ms'),
     );

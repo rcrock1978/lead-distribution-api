@@ -52,6 +52,11 @@ export function buildApp(deps: AppDeps): Express {
         : 'other';
     res.on('finish', () => {
       const ms = Number(process.hrtime.bigint() - start) / 1e6;
+      deps.metrics.incCounter('http_requests_total', {
+        method,
+        route,
+        status: String(res.statusCode),
+      });
       deps.metrics.observeHistogram(
         'http_request_duration_ms',
         ms,

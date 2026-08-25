@@ -7,7 +7,8 @@ import type { NegativeSlugCache } from '../../../infrastructure/persistence/cach
 import type { Env } from '../../../config/env';
 import type { Logger } from '../../../infrastructure/observability/logger';
 import type { PrismaClient } from '@prisma/client';
-import { sendSuccess } from '../middleware/error-handler';
+import { sendError, sendSuccess } from '../middleware/error-handler';
+import { Prisma } from '@prisma/client';
 
 export interface FormDeps {
   env: Env;
@@ -34,7 +35,7 @@ export function formRoutes(deps: FormDeps): Router {
       id: form.id,
       name: form.name,
       slug: form.slug,
-      publicUrl: `/f/${form.slug}`,
+      publicUrl: `/${form.slug}`,
       createdAt: form.createdAt,
     });
   });
@@ -68,12 +69,30 @@ export function formRoutes(deps: FormDeps): Router {
       },
     });
 
-    const form = await useCase.execute(input);
+    let form;
+    try {
+      form = await useCase.execute(input);
+    } catch (err) {
+      // Two racers can pass the existence check; the UNIQUE index is the
+      // authority — translate the collision into the contract 409.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        sendError(
+          res,
+          'FORM_ALREADY_EXISTS',
+          'A form already exists. Only one form can be created.',
+        );
+        return;
+      }
+      throw err;
+    }
     sendSuccess(res, 201, {
       id: form.id,
       name: form.name,
       slug: form.slug,
-      publicUrl: `/f/${form.slug}`,
+      publicUrl: `/${form.slug}`,
       createdAt: form.createdAt,
     });
   });

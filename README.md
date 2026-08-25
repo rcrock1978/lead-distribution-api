@@ -34,6 +34,8 @@ npm run build
 | `INTERNAL_API_TOKEN` | Shared secret the frontend BFF must present |
 | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | Provisioned at seed time |
 | `PUBLIC_RATE_LIMIT_PER_MIN` | Public capture ceiling, default 30 |
+| `JWT_EXPIRES_IN` | Session token lifetime (`24h`) — cookie max-age follows |
+| `OUTBOX_POLL_INTERVAL_MS` / `OUTBOX_BATCH_SIZE` / `OUTBOX_MAX_ATTEMPTS` | Worker queue tuning (500 / 10 / 5) |
 | `CONFIG_CACHE` | Enables version-gated config cache decorator |
 | `INLINE_WORKER` | `true` runs the consumer inside the API process |
 

@@ -32,8 +32,11 @@ Status legend: ✅ verified in this repository · 🔍 reviewer command · 📋 
   gitleaks detect --source . --report-path /tmp/gitleaks-report.json --redact
   ```
 
-  Expected result: `no leaks found` (empty report). Record the run date +
-  gitleaks version in the delivery notes.
+  ✅ **Executed 2026-08-25 — result: `no leaks found`.** One finding was the
+  deterministic test-only JWT placeholder in
+  `tests/integration/helpers/test-app.ts`; dispositioned as a non-secret and
+  allowlisted with rationale in `.gitleaksignore` (fingerprint recorded
+  there). Re-run before every delivery and append the date to this section.
 
 ## 3. Auth model
 

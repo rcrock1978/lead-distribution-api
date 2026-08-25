@@ -103,6 +103,13 @@ export const distributionRecordSchema = z.object({
   formId: z.number().int().positive(),
   timezone: z.string(),
 });
+export const distributionPatchInputSchema = z
+  .object({
+    name: nameSchema.optional(),
+    timezone: timezoneNameSchema.optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, 'At least one field is required.');
+
 export const distributionGetResponseSchema = z.object({
   distribution: distributionRecordSchema.nullable(),
   members: z.array(distributionMemberViewSchema),

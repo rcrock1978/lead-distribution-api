@@ -90,7 +90,6 @@ export class ManuallyAssignLeadUseCase {
           deficit: 0,
         },
       };
-      void manualTrace;
       await this.deps.leads.markSent(
         lead.id,
         broker.id,

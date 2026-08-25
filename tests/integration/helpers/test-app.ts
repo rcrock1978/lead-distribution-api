@@ -69,7 +69,10 @@ export async function resetDatabase(prisma: PrismaClient): Promise<void> {
 }
 
 export async function startTestApp(
-  opts: { envOverrides?: Record<string, string> } = {},
+  opts: {
+    envOverrides?: Record<string, string>;
+    log?: import('@/src/infrastructure/observability/logger').Logger;
+  } = {},
 ): Promise<TestApp> {
   ensureTestDatabase();
 
@@ -110,13 +113,14 @@ export async function startTestApp(
     update: { version: 1 },
   });
 
-  const log: Logger = {
-    child: () => log,
-    debug: () => {},
-    info: () => {},
-    warn: () => {},
-    error: () => {},
-  };
+  const log: Logger =
+    opts.log ?? {
+      child: () => log,
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    };
 
   const metrics = new (await import('@/src/infrastructure/observability/metrics')).MetricsRegistry();
   const app = buildApp({

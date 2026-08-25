@@ -17,6 +17,7 @@ export const EVENTS = [
   'form.created',
   'distribution.created',
   'distribution.members.replaced',
+  'distribution.updated',
   'broker.created',
   'broker.updated',
   'broker.deleted',
@@ -27,7 +28,8 @@ export const EVENTS = [
   'lead.routed',
   'lead.unsent',
   'lead.duplicate',
-  'lead.manually_assigned',
+  'lead.assigned.manual',
+  'lead.failed',
   'lead.retried',
   'broker.excluded',
 
@@ -36,6 +38,7 @@ export const EVENTS = [
   'outbox.claimed',
   'outbox.processed',
   'outbox.failed',
+  'outbox.retry',
   'outbox.dead',
   'outbox.replayed',
   'outbox.reaped',
@@ -44,6 +47,11 @@ export const EVENTS = [
   // Config cache (version-gated decorator)
   'config.cache.refreshed',
   'config.cache.cleared',
+
+  // Lifecycle & configuration
+  'app.started',
+  'app.stopping',
+  'config.loaded',
 
   // Worker lifecycle & maintenance
   'worker.started',

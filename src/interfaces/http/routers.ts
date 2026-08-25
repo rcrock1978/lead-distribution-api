@@ -35,7 +35,7 @@ export interface ApiRouterDeps {
  * the public controller (read) so invalidation is immediate.
  */
 export function buildApiRouters(deps: ApiRouterDeps): Array<[string, Router]> {
-  const jwt = new JwtService(deps.env.JWT_SECRET);
+  const jwt = new JwtService(deps.env.JWT_SECRET, deps.env.JWT_EXPIRES_IN);
   const negativeSlugCache = new NegativeSlugCache(deps.env.CONFIG_CACHE);
 
   return [

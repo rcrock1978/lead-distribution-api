@@ -22,6 +22,10 @@ async function main(): Promise<void> {
   const handlers: Map<string, MessageHandler> = registerWorkerHandlers(container);
   consumer = container.buildConsumer(handlers);
   consumer.start();
+  container.log.info('config.loaded', undefined, {
+    dbName: (env.DATABASE_URL.split('/').pop() ?? '').split('?')[0],
+  });
+  container.log.info('app.started', undefined, { workerId: env.WORKER_ID });
 
   // Nightly maintenance scheduler lives with purge-tasks (US5).
   const { scheduleNightlyMaintenance } = await import('./interfaces/worker/purge-tasks');
@@ -31,7 +35,7 @@ async function main(): Promise<void> {
 void main();
 
 async function shutdown(signal: string): Promise<void> {
-  container.log.info('http.response', `worker received ${signal}, shutting down`);
+  container.log.info('app.stopping', `worker received ${signal}, shutting down`);
   await consumer?.stop();
   await container.prisma.$disconnect();
   process.exit(0);

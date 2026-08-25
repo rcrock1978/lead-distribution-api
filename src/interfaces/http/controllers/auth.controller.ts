@@ -5,7 +5,6 @@ import { AppError } from '../../../domain/errors/app-error';
 import { maskEmail } from '../../../infrastructure/observability/logger';
 import {
   SESSION_COOKIE_NAME,
-  SESSION_MAX_AGE_SECONDS,
 } from '../../../infrastructure/security/jwt.service';
 import type { JwtService } from '../../../infrastructure/security/jwt.service';
 import { verifyPassword } from '../../../infrastructure/security/bcrypt.service';
@@ -47,12 +46,12 @@ export function authRoutes(deps: AuthDeps): Router {
       return;
     }
 
-    const token = deps.jwt.sign({ sub: user.id, email: user.email }, '24h');
+    const token = deps.jwt.sign({ sub: user.id, email: user.email });
     res.cookie(SESSION_COOKIE_NAME, token, {
       httpOnly: true,
       sameSite: 'lax',
       path: '/',
-      maxAge: SESSION_MAX_AGE_SECONDS * 1000,
+      maxAge: deps.jwt.maxAgeSeconds * 1000,
       secure: deps.env.isProduction,
     });
     deps.log.info('auth.login.succeeded', 'Login succeeded', {

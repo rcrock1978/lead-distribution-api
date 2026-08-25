@@ -77,6 +77,11 @@ export interface DistributionMember {
   isCapped: boolean;
 }
 
+export interface DistributionPatchInput {
+  name?: string;
+  timezone?: string;
+}
+
 export interface DistributionMemberInput {
   brokerId: number;
   percentage: number;
@@ -173,6 +178,7 @@ export interface DashboardSummary {
 
 export interface OutboxStatusResponse {
   depths: Record<string, number>;
+  doneLastHour: number;
   oldestPendingAgeMs: number | null;
   dead: Array<{
     id: string;

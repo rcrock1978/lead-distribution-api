@@ -17,14 +17,25 @@ export function routeLeadHandler(container: Container): MessageHandler {
       rawPayload,
     ) as LeadRoutingPayload;
 
-    const outcome = await container.routeLeadUseCase.execute({
-      messageId: meta.messageId,
-      traceId: meta.traceId,
-      payload,
-    });
+    let outcome;
+    try {
+      outcome = await container.routeLeadUseCase.execute({
+        messageId: meta.messageId,
+        traceId: meta.traceId,
+        payload,
+      });
+    } catch (err) {
+      container.log.error('lead.failed', undefined, {
+        leadId: payload.leadId,
+        error: err instanceof Error ? err.message : String(err),
+        traceId: meta.traceId,
+      });
+      throw err; // consumer owns backoff/dead-lettering
+    }
 
-    // Exclusion accounting (US6 panel): derive from the persisted trace so
-    // the pure domain stays metrics-free.
+    // Exclusion accounting (§13.3/§14.2): derive from the persisted trace so
+    // the pure domain stays metrics-free. Emits the broker.excluded debug
+    // event per rule AND increments the labeled counter.
     if (outcome.kind !== 'skipped') {
       try {
         const row = await container.prisma.lead.findUnique({
@@ -32,14 +43,20 @@ export function routeLeadHandler(container: Container): MessageHandler {
           select: { decisionTrace: true },
         });
         const exclusions =
-          (row?.decisionTrace as { exclusions?: Array<{ rule?: string }> })
-            ?.exclusions ?? [];
+          (row?.decisionTrace as {
+            exclusions?: Array<{ brokerId?: number; rule?: string }>;
+          })?.exclusions ?? [];
         for (const e of exclusions) {
-          if (e?.rule) {
-            container.metrics.incCounter('broker_exclusions_total', {
-              rule: e.rule,
-            });
-          }
+          if (!e?.rule) continue;
+          container.log.debug('broker.excluded', undefined, {
+            leadId: payload.leadId,
+            brokerId: e.brokerId,
+            rule: e.rule,
+            traceId: meta.traceId,
+          });
+          container.metrics.incCounter('broker_exclusions_total', {
+            rule: e.rule,
+          });
         }
       } catch {
         // Observability must never fail the pipeline.

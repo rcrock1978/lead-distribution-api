@@ -23,11 +23,18 @@ if (env.INLINE_WORKER) {
 
 const app = buildApp({ ...container, extraRouters: container.apiRouters });
 const server = app.listen(env.PORT, '127.0.0.1', () => {
-  container.log.info('http.request', `lead-api listening on 127.0.0.1:${env.PORT}`);
+  container.log.info('config.loaded', undefined, {
+    port: env.PORT,
+    dbName: (env.DATABASE_URL.split('/').pop() ?? '').split('?')[0],
+  });
+  container.log.info('app.started', undefined, {
+    port: env.PORT,
+    inlineWorker: env.INLINE_WORKER,
+  });
 });
 
 async function shutdown(signal: string): Promise<void> {
-  container.log.info('http.response', `received ${signal}, shutting down`);
+  container.log.info('app.stopping', `received ${signal}, shutting down`);
   server.close();
   await inlineStop?.();
   await container.prisma.$disconnect();

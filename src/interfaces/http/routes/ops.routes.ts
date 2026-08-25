@@ -100,9 +100,13 @@ export function opsRoutes(deps: OpsDeps): Router {
   // computed here from recent SENT leads instead of living in this
   // process's histogram memory.
   router.get('/metrics', async (_req, res) => {
-    const [pendingDepth, deadDepth, recentSent] = await Promise.all([
-      deps.prisma.outbox.count({ where: { status: 'PENDING' } }),
-      deps.prisma.outbox.count({ where: { status: 'DEAD' } }),
+    const [statusGrouped, oldestPending, recentSent] = await Promise.all([
+      deps.prisma.outbox.groupBy({ by: ['status'], _count: { _all: true } }),
+      deps.prisma.outbox.findFirst({
+        where: { status: 'PENDING', availableAt: { lte: new Date() } },
+        orderBy: { availableAt: 'asc' },
+        select: { availableAt: true },
+      }),
       deps.prisma.lead.findMany({
         where: { status: 'SENT', assignedAt: { not: null } },
         orderBy: { assignedAt: 'desc' },
@@ -110,8 +114,25 @@ export function opsRoutes(deps: OpsDeps): Router {
         select: { createdAt: true, assignedAt: true },
       }),
     ]);
-    deps.metrics.setGauge('outbox_pending_depth', pendingDepth);
-    deps.metrics.setGauge('outbox_dead_depth', deadDepth);
+    // §14.2 — depth per status + the true lag signal. All four statuses are
+    // ALWAYS present (a missing status is a real zero, not an absent series).
+    const depths: Record<string, number> = {
+      pending: 0, processing: 0, done: 0, dead: 0,
+    };
+    for (const g of statusGrouped) {
+      depths[g.status.toLowerCase()] = g._count._all;
+    }
+    for (const [status, n] of Object.entries(depths)) {
+      deps.metrics.setGauge('outbox_depth', n, { status });
+    }
+    const cv = await deps.prisma.configVersion.findUnique({ where: { id: 1 } });
+    deps.metrics.setGauge('config_version', cv?.version ?? 0);
+    deps.metrics.setGauge(
+      'outbox_oldest_pending_age_ms',
+      oldestPending === null
+        ? 0
+        : Date.now() - oldestPending.availableAt.getTime(),
+    );
 
     const latencies = recentSent
       .map((l) => l.assignedAt!.getTime() - l.createdAt.getTime())
