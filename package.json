@@ -1,7 +1,7 @@
 {
   "name": "lead-distribution-backend",
   "version": "1.0.0",
-  "description": "Lead Distribution Platform — API + routing worker",
+  "description": "Lead Distribution Platform \u2014 API + routing worker",
   "license": "MIT",
   "private": true,
   "engines": {
@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run",
+    "postinstall": "prisma generate",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:concurrency": "vitest run --project concurrency",
