@@ -12,8 +12,8 @@ const backendRoot = join(here, '..');
 const emittedPath = join(backendRoot, 'dist', 'contracts-emitted', 'types.d.ts');
 const frontendCopy = join(
   backendRoot,
-  '..',
-  'frontend',
+  process.env.CONTRACT_SYNC_TARGET ?? '..',
+  'lead-distribution-web',
   'src',
   'types',
   'api-contract.d.ts',

@@ -1,0 +1,2 @@
+# Test-only deterministic JWT placeholder (see tests/integration/helpers/test-app.ts).
+a4e1fbbe2c5a0c332ea477ce446ff4aed465f9ad:tests/integration/helpers/test-app.ts:generic-api-key:81

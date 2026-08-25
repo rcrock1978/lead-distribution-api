@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const backendRoot = join(here, '..');
 const emitted = join(backendRoot, 'dist', 'contracts-emitted', 'types.d.ts');
-const targetDir = join(backendRoot, '..', 'frontend', 'src', 'types');
+const targetDir = join(backendRoot, process.env.CONTRACT_SYNC_TARGET ?? '..', 'lead-distribution-web', 'src', 'types');
 const target = join(targetDir, 'api-contract.d.ts');
 
 let content;

@@ -1,7 +1,7 @@
 # lead-api (backend)
 
 Express + Prisma + MySQL API and routing worker for the Lead Distribution
-Platform. The full product story lives in `../specs/001-lead-distribution-platform/`;
+Platform. The full product story lives in `specs/001-lead-distribution-platform/`;
 `quickstart.md` there is the source of truth for every verification step.
 
 ## Stack
@@ -85,7 +85,7 @@ Backend Zod schemas are the single source of truth. After changing
 `src/contracts/index.ts`:
 
 ```sh
-npm run contracts:build && npm run contracts:sync   # updates ../frontend/src/types/api-contract.d.ts
+npm run contracts:build && npm run contracts:sync   # updates ../lead-distribution-web/src/types/api-contract.d.ts
 ```
 
 Commit the regenerated file in the same change set; CI fails on drift.
