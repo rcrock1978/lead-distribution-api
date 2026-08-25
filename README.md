@@ -18,10 +18,10 @@ docker run -d --name lead-mysql -p 3306:3306 \
   -e MYSQL_DATABASE=lead_platform \
   -e MYSQL_USER=lead -e MYSQL_PASSWORD=leaddev mysql:8
 
-npm ci
-cp .env.example .env                  # then edit values (see below)
+npm ci                               # postinstall runs `prisma generate`
+cp .env.example .env                 # then edit values (see below)
 npx prisma migrate deploy
-npm run seed                          # creates admin + ConfigVersion row
+npm run db:seed                      # creates admin + ConfigVersion row
 npm run build
 ```
 
