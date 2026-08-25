@@ -2,8 +2,8 @@
 # Quickstart S1–S14 rehearsal against the LOCAL PM2 stack (T062).
 # Usage: ./scripts/quickstart-rehearse.sh   (stack must be up: pm2 start ecosystem.config.js)
 set -u
-API=127.0.0.1:4000
-WEB=localhost:3000
+API=${API:-31.97.72.35:8317}
+WEB=${WEB:-31.97.72.35:8316}
 TOKEN=$(grep '^INTERNAL_API_TOKEN=' .env | cut -d= -f2)
 JAR=$(mktemp)
 PASS=0; FAIL=0
