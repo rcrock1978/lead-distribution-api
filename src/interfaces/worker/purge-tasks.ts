@@ -58,6 +58,9 @@ async function purgeOutboxDone(container: Container): Promise<number> {
     if (page.length < PURGE_BATCH) break;
   }
   container.metrics.incCounter('outbox_reaped_total', undefined, total);
+  if (total > 0) {
+    container.log.info('outbox.reaped', 'purged DONE outbox rows', { total });
+  }
   return total;
 }
 

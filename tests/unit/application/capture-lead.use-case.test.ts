@@ -136,14 +136,15 @@ describe('CaptureLeadUseCase', () => {
     expect(fakes.outbox[0]!.traceId).toBe(traceId);
   });
 
-  it('returns DUPLICATE when email already captured for same form', async () => {
+  it('accepts a repeat as fresh while prior lead is unsent (FR-011 edge case)', async () => {
     const fakes = createFakes();
-    const useCase = new CaptureLeadUseCase({
-      leadRepo: fakes.leadRepo,
-      outboxRepo: fakes.outboxRepo,
-      formId: 1,
-    });
-    const first = await useCase.execute({
+    const make = () =>
+      new CaptureLeadUseCase({
+        leadRepo: fakes.leadRepo,
+        outboxRepo: fakes.outboxRepo,
+        formId: 1,
+      });
+    const first = await make().execute({
       name: 'Bob Jones',
       email: 'bob@example.com',
       phone: '+63 917 100 0002',
@@ -152,46 +153,16 @@ describe('CaptureLeadUseCase', () => {
     });
     expect(first.kind).toBe('CAPTURED');
 
-    const second = await useCase.execute({
+    const second = await make().execute({
       name: 'Bob Jones',
       email: 'bob@example.com',
       phone: '+63 917 100 0002',
       ipAddress: '10.0.0.2',
       traceId: randomUUID(),
     });
-    expect(second.kind).toBe('DUPLICATE');
-    expect(fakes.leads.length).toBe(1);
-    expect(fakes.outbox.length).toBe(1);
-  });
-
-  it('permits the same email on a different form', async () => {
-    const fakes = createFakes();
-    const useCaseA = new CaptureLeadUseCase({
-      leadRepo: fakes.leadRepo,
-      outboxRepo: fakes.outboxRepo,
-      formId: 1,
-    });
-    const useCaseB = new CaptureLeadUseCase({
-      leadRepo: fakes.leadRepo,
-      outboxRepo: fakes.outboxRepo,
-      formId: 2,
-    });
-    const r1 = await useCaseA.execute({
-      name: 'Carol Diaz',
-      email: 'carol@example.com',
-      phone: '+63 917 100 0003',
-      ipAddress: '10.0.0.1',
-      traceId: randomUUID(),
-    });
-    const r2 = await useCaseB.execute({
-      name: 'Carol Diaz',
-      email: 'carol@example.com',
-      phone: '+63 917 100 0003',
-      ipAddress: '10.0.0.2',
-      traceId: randomUUID(),
-    });
-    expect(r1.kind).toBe('CAPTURED');
-    expect(r2.kind).toBe('CAPTURED');
+    // Duplication authority is prior ASSIGNMENT, not prior submission —
+    // both submissions persist and enqueue.
+    expect(second.kind).toBe('CAPTURED');
     expect(fakes.leads.length).toBe(2);
     expect(fakes.outbox.length).toBe(2);
   });

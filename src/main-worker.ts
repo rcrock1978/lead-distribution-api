@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { loadEnv } from './config/env';
 import { buildContainer } from './container';
 import { OutboxConsumer } from './infrastructure/messaging/outbox-consumer';

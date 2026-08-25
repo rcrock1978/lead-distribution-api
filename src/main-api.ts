@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { loadEnv } from './config/env';
 import { buildContainer } from './container';
 import { buildApp } from './interfaces/http/app';
@@ -20,7 +21,7 @@ if (env.INLINE_WORKER) {
   inlineStop = () => consumer.stop();
 }
 
-const app = buildApp({ ...container });
+const app = buildApp({ ...container, extraRouters: container.apiRouters });
 const server = app.listen(env.PORT, '127.0.0.1', () => {
   container.log.info('http.request', `lead-api listening on 127.0.0.1:${env.PORT}`);
 });

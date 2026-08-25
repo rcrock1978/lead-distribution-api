@@ -102,6 +102,13 @@ export async function startTestApp(
     create: { email: adminEmail, passwordHash },
     update: { passwordHash },
   });
+  // Production seeds ConfigVersion id=1; readiness treats it as the
+  // migrations-applied marker, so the scratch DB must mirror that.
+  await prisma.configVersion.upsert({
+    where: { id: 1 },
+    create: { id: 1, version: 1 },
+    update: { version: 1 },
+  });
 
   const log: Logger = {
     child: () => log,
@@ -111,10 +118,11 @@ export async function startTestApp(
     error: () => {},
   };
 
+  const metrics = new (await import('@/src/infrastructure/observability/metrics')).MetricsRegistry();
   const app = buildApp({
     env,
     log,
-    metrics: new (await import('@/src/infrastructure/observability/metrics')).MetricsRegistry(),
+    metrics,
     clock: new (await import('@/src/infrastructure/time/luxon-clock')).LuxonClock(),
     prisma,
     extraRouters: buildApiRouters({
@@ -122,6 +130,7 @@ export async function startTestApp(
       log,
       prisma,
       clock: new (await import('@/src/infrastructure/time/luxon-clock')).LuxonClock(),
+      metrics,
     }),
   });
 

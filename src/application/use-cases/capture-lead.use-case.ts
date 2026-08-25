@@ -4,14 +4,6 @@ import { Email } from '../../domain/value-objects/email.vo';
 
 export interface CaptureLeadPorts {
   leadRepo: {
-    findUniqueByEmail(
-      formId: number,
-      email: string,
-    ): Promise<{
-      id: number;
-      formId: number;
-      email: string;
-    } | null>;
     create(data: {
       formId: number;
       name: string;
@@ -37,7 +29,6 @@ export interface CaptureLeadPorts {
 
 export type CaptureLeadResult =
   | { kind: 'CAPTURED'; leadId: number; traceId: string }
-  | { kind: 'DUPLICATE'; leadId: number; traceId: string }
   | { kind: 'VALIDATION_ERROR'; errors: string[]; traceId: string };
 
 /**
@@ -78,22 +69,13 @@ export class CaptureLeadUseCase {
       return { kind: 'VALIDATION_ERROR', errors, traceId: input.traceId };
     }
 
-    // 2. Duplicate check — findUnique is sufficient because
-    //    AssignedEmail.email PK collision IS the guard (INV-3).
-    //    In practice we check Lead per form for simplicity; the outbox
-    //    routing layer uses AssignedEmail for hard enforcement.
-    const existing = await this.deps.leadRepo.findUniqueByEmail(
-      this.deps.formId,
-      normalizedEmail,
-    );
-    if (existing !== null) {
-      return { kind: 'DUPLICATE', leadId: existing.id, traceId: input.traceId };
-    }
+    // NOTE (FR-011 / Edge Cases): duplication authority is PRIOR ASSIGNMENT
+    // only — a repeat while the earlier lead is still unsent is accepted as
+    // a fresh attempt here. The AssignedEmail PK collision at routing time
+    // is the sole duplicate guard (INV-3).
 
-    // 3. Persist Lead + Outbox in ONE transaction (INV-5).
-    //    The caller MUST wrap this in a transaction. We mark the intent
-    //    and return; the calling adapter (controller/route) is responsible
-    //    for the Prisma $transaction boundary.
+    // Persist Lead + Outbox in ONE transaction (INV-5); the caller wraps
+    // this in the Prisma transaction via tx-scoped adapters.
     const lead = await this.deps.leadRepo.create({
       formId: this.deps.formId,
       name: input.name.trim(),

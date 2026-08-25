@@ -37,6 +37,30 @@ export function buildApp(deps: AppDeps): Express {
   const app = express();
   const jwt = new JwtService(deps.env.JWT_SECRET);
 
+  // Middleware #0 — full request duration (plan D10): starts BEFORE
+  // correlation so the observation covers the entire stack incl. handlers.
+  app.use((req, res, next) => {
+    const start = process.hrtime.bigint();
+    // Snapshot identity NOW: Express mutates req internals during routing,
+    // so lazy reads inside the finish closure are unreliable.
+    const method = req.method;
+    const pathAtStart = String(req.originalUrl ?? req.url);
+    const route = pathAtStart.startsWith('/api/public/leads')
+      ? 'capture'
+      : pathAtStart.startsWith('/api/public')
+        ? 'public'
+        : 'other';
+    res.on('finish', () => {
+      const ms = Number(process.hrtime.bigint() - start) / 1e6;
+      deps.metrics.observeHistogram(
+        'http_request_duration_ms',
+        ms,
+        { method, route },
+      );
+    });
+    next();
+  });
+
   // 1. requestId/logger binding + trace correlation
   app.use(correlationMiddleware(deps.log));
   // 2. security headers

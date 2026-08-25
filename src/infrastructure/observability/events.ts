@@ -38,6 +38,7 @@ export const EVENTS = [
   'outbox.failed',
   'outbox.dead',
   'outbox.replayed',
+  'outbox.reaped',
   'outbox.stale_reclaimed',
 
   // Config cache (version-gated decorator)

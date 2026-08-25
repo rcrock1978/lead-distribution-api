@@ -1,7 +1,7 @@
 {
   "name": "lead-distribution-backend",
   "version": "1.0.0",
-  "description": "Lead Distribution Platform \u2014 API + routing worker",
+  "description": "Lead Distribution Platform — API + routing worker",
   "license": "MIT",
   "private": true,
   "engines": {
@@ -31,6 +31,7 @@
     "@prisma/client": "^6.5.0",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
+    "dotenv": "^17.4.2",
     "express": "^5.1.0",
     "express-rate-limit": "^8.0.1",
     "helmet": "^8.1.0",

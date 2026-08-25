@@ -16,6 +16,9 @@ import type { PrismaClient } from '@prisma/client';
 import type { LuxonClock } from '../../../infrastructure/time/luxon-clock';
 import { BrokerService } from '../../../services/broker.service';
 import { sendSuccess } from '../middleware/error-handler';
+import { PrismaBrokerRoutingRepository } from '../../../infrastructure/persistence/prisma/prisma-broker-routing.repository';
+import { selectBroker } from '../../../domain/services/select-broker';
+import { Broker } from '../../../domain/entities/broker.entity';
 
 export interface DistributionDeps {
   log: Logger;
@@ -130,6 +133,27 @@ export function distributionRoutes(deps: DistributionDeps): Router {
       });
     }
     sendSuccess(res, 200, { distribution, members });
+  });
+
+  // POST /api/distribution/simulate — dry-run selection (Tier 2, T044):
+  // live candidates + live counts through selectBroker with ZERO writes.
+  router.post('/simulate', async (_req, res) => {
+    const routingRepo = new PrismaBrokerRoutingRepository(deps.prisma, deps.clock);
+    const [candidateRows, distributionTimezone, totalSentToday] =
+      await Promise.all([
+        routingRepo.findCandidates(),
+        routingRepo.getDistributionTimezone(),
+        routingRepo.getTotalSentToday(),
+      ]);
+    const selection = selectBroker(
+      candidateRows.map((c) => ({
+        broker: new Broker(c.state),
+        nowInBrokerZone: c.nowInBrokerZone,
+      })),
+      totalSentToday,
+      distributionTimezone,
+    );
+    sendSuccess(res, 200, selection);
   });
 
   router.put('/brokers', async (req, res) => {

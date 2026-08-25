@@ -9,10 +9,12 @@ import {
   type CaptureLeadPorts,
 } from '../../../application/use-cases/capture-lead.use-case';
 import type { Logger } from '../../../infrastructure/observability/logger';
+import type { MetricsRegistry } from '../../../infrastructure/observability/metrics';
 
 export interface PublicLeadsDeps {
   log: Logger;
   prisma: PrismaClient;
+  metrics: MetricsRegistry;
 }
 
 function normalizeIp(ip: string): string {
@@ -54,12 +56,6 @@ function buildCapturePorts(tx: TxClient, formId: number): Omit<CaptureLeadPorts,
   return {
     formId,
     leadRepo: {
-      async findUniqueByEmail(pid, email) {
-        return tx.lead.findFirst({
-          where: { formId: pid, email },
-          select: { id: true, formId: true, email: true },
-        });
-      },
       async create(data) {
         return tx.lead.create({
           data: {
@@ -150,6 +146,9 @@ export function publicLeadsRoutes(deps: PublicLeadsDeps): Router {
         ...(result.kind === 'VALIDATION_ERROR' ? {} : { leadId: result.leadId }),
         traceId,
       });
+      if (result.kind === 'CAPTURED') {
+        deps.metrics.incCounter('leads_captured_total');
+      }
     } catch (err) {
       // Never leak capture failures to the visitor.
       deps.log.error(

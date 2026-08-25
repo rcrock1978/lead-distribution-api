@@ -9,6 +9,15 @@ import {
   OutboxConsumer,
   type MessageHandler,
 } from './infrastructure/messaging/outbox-consumer';
+import { PrismaUnitOfWork } from './infrastructure/persistence/prisma/prisma-unit-of-work';
+import { PrismaLeadRepository } from './infrastructure/persistence/prisma/prisma-lead.repository';
+import { PrismaBrokerRoutingRepository } from './infrastructure/persistence/prisma/prisma-broker-routing.repository';
+import { PrismaCapGate } from './infrastructure/persistence/prisma/prisma-cap-gate';
+import { PrismaEmailGuard } from './infrastructure/persistence/prisma/prisma-email-guard';
+import { RouteLeadUseCase } from './application/use-cases/route-lead.use-case';
+import { buildApiRouters } from './interfaces/http/routers';
+import type { Router } from 'express';
+import { CachedDistributionConfigRepository } from './infrastructure/persistence/cache/cached-distribution-config.repository';
 
 /**
  * Explicit composition root (no DI framework). Everything swappable is
@@ -22,6 +31,9 @@ export interface Container {
   clock: LuxonClock;
   prisma: PrismaClient;
   outboxPublisher: PrismaOutboxPublisher;
+  routeLeadUseCase: RouteLeadUseCase;
+  /** Business routes mounted by buildApp in BOTH processes (ops included). */
+  apiRouters: Array<[string, Router]>;
   buildConsumer(handlers: Map<string, MessageHandler>): OutboxConsumer;
 }
 
@@ -43,6 +55,29 @@ export function buildContainer(env: Env, processName: string): Container {
     clock,
     prisma,
     outboxPublisher,
+    routeLeadUseCase: new RouteLeadUseCase({
+      uow: new PrismaUnitOfWork(prisma),
+      leads: new PrismaLeadRepository(prisma),
+      brokers: env.CONFIG_CACHE
+        ? new CachedDistributionConfigRepository(
+            new PrismaBrokerRoutingRepository(prisma, clock),
+            prisma,
+            clock,
+            metrics,
+            log,
+          )
+        : new PrismaBrokerRoutingRepository(prisma, clock),
+      capGate: new PrismaCapGate(prisma),
+      emailGuard: new PrismaEmailGuard(prisma, () => clock.utcNow()),
+      clock,
+    }),
+    apiRouters: buildApiRouters({
+      env,
+      log,
+      prisma,
+      clock,
+      metrics,
+    }),
     buildConsumer: (handlers) =>
       new OutboxConsumer({
         prisma,

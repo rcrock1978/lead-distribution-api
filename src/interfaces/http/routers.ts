@@ -10,14 +10,23 @@ import { formRoutes } from './controllers/form.controller';
 import { distributionRoutes } from './controllers/distribution.controller';
 import { publicFormRoutes } from './controllers/public-form.controller';
 import { publicLeadsRoutes } from './controllers/public-leads.controller';
+import { leadsRoutes } from './controllers/leads.controller';
+import {
+  dashboardRoutes,
+  brokerDetailHandler,
+  distributionDetailRoutes,
+} from './controllers/composite.controller';
+import { opsRoutes } from './routes/ops.routes';
 import type { PrismaClient } from '@prisma/client';
 import type { LuxonClock } from '../../infrastructure/time/luxon-clock';
+import type { MetricsRegistry } from '../../infrastructure/observability/metrics';
 
 export interface ApiRouterDeps {
   env: Env;
   log: Logger;
   prisma: PrismaClient;
   clock: LuxonClock;
+  metrics: MetricsRegistry;
 }
 
 /**
@@ -55,7 +64,26 @@ export function buildApiRouters(deps: ApiRouterDeps): Array<[string, Router]> {
     ['/api/public', publicFormRoutes({ prisma: deps.prisma, negativeSlugCache })],
     [
       '/api/public',
-      publicLeadsRoutes({ log: deps.log, prisma: deps.prisma }),
+      publicLeadsRoutes({
+        log: deps.log,
+        prisma: deps.prisma,
+        metrics: deps.metrics,
+      }),
+    ],
+    [
+      '/api/leads',
+      leadsRoutes({ log: deps.log, prisma: deps.prisma, clock: deps.clock }),
+    ],
+    ['/api/dashboard', dashboardRoutes(deps)],
+    ['/api/brokers', brokerDetailHandler(deps)],
+    ['/api/distribution', distributionDetailRoutes(deps)],
+    [
+      '/api/ops',
+      opsRoutes({
+        prisma: deps.prisma,
+        metrics: deps.metrics,
+        log: deps.log,
+      }),
     ],
   ];
 }
