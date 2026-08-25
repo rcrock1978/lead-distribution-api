@@ -17,6 +17,6 @@ module.exports = {
     { name: 'lead-web',    cwd: WEB, script: 'node_modules/next/dist/bin/next',
       args: 'start', instances: 1, exec_mode: 'fork',
       max_memory_restart: '400M', time: true,
-      env: { NODE_ENV: 'production', PORT: process.env.FRONTEND_PUBLIC_PORT ?? '3000' } },
+      env: { NODE_ENV: 'production', PORT: process.env.FRONTEND_PUBLIC_PORT ?? '8316' } },
   ],
 };
