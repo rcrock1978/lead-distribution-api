@@ -1,0 +1,198 @@
+// Lead Distribution Platform — schema implementing data-model.md exactly.
+// Invariants (Constitution I) are encoded HERE, not in application code:
+//   INV-1/2  singleton Boolean? @unique on Form/Distribution (single TRUE possible)
+//   INV-3    AssignedEmail.email PRIMARY KEY — collision IS duplicate detection
+//   INV-4    BrokerDailyCounter incremented ONLY via conditional atomic UPDATE
+//   INV-7    Lead.ipAddress NOT NULL
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum LeadStatus {
+  UNSENT
+  SENT
+  DUPLICATE
+  FAILED
+}
+
+enum AssignmentType {
+  AUTO
+  MANUAL
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  DONE
+  DEAD
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @db.VarChar(100)
+  createdAt    DateTime @default(now())
+
+  @@map("users")
+}
+
+/// INV-1: exactly one form platform-wide (singleton TRUE is unique).
+model Form {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  slug      String   @unique @db.VarChar(50)
+  singleton Boolean? @unique
+  createdAt DateTime @default(now())
+
+  distribution Distribution?
+  leads        Lead[]
+
+  @@map("forms")
+}
+
+/// INV-2: exactly one distribution platform-wide; 1:1 auto-bound to the form.
+model Distribution {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  formId    Int      @unique
+  form      Form     @relation(fields: [formId], references: [id])
+  timezone  String   @default("Asia/Manila") @db.VarChar(64)
+  singleton Boolean? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  members DistributionBroker[]
+
+  @@map("distributions")
+}
+
+model Broker {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(100)
+  isActive    Boolean  @default(true)
+  dailyCap    Int      @default(0)
+  timezone    String   @db.VarChar(64)
+  openingTime String   @db.VarChar(5)
+  closingTime String   @db.VarChar(5)
+  workingDays Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  memberships    DistributionBroker[]
+  counters       BrokerDailyCounter[]
+  assignedEmails AssignedEmail[]
+  leads          Lead[]
+
+  @@map("brokers")
+}
+
+model DistributionBroker {
+  distributionId         Int
+  brokerId               Int
+  percentage             Decimal @db.Decimal(5, 2)
+  isActiveInDistribution Boolean @default(true)
+
+  distribution Distribution @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+  broker       Broker       @relation(fields: [brokerId], references: [id], onDelete: Cascade)
+
+  @@id([distributionId, brokerId])
+  @@map("distribution_brokers")
+}
+
+/// INV-7: ipAddress NOT NULL on every lead regardless of outcome.
+model Lead {
+  id             Int             @id @default(autoincrement())
+  formId         Int
+  form           Form            @relation(fields: [formId], references: [id])
+  name           String          @db.VarChar(100)
+  email          String          @db.VarChar(255)
+  phone          String          @db.VarChar(20)
+  ipAddress      String          @db.VarChar(45)
+  status         LeadStatus      @default(UNSENT)
+  brokerId       Int?
+  broker         Broker?         @relation(fields: [brokerId], references: [id])
+  assignedAt     DateTime?
+  assignmentType AssignmentType?
+  failureReason  String?         @db.VarChar(255)
+  decisionTrace  Json
+  traceId        String          @db.Char(32)
+  createdAt      DateTime        @default(now())
+
+  assignedEmail AssignedEmail?
+
+  @@index([status, createdAt])
+  @@index([brokerId, assignedAt])
+  @@index([traceId])
+  @@map("leads")
+}
+
+/// INV-3: email PRIMARY KEY — the insert collision IS duplicate detection.
+/// Permanent (FR-036): never purged.
+model AssignedEmail {
+  email      String   @id @db.VarChar(255)
+  brokerId   Int
+  broker     Broker   @relation(fields: [brokerId], references: [id])
+  leadId     Int      @unique
+  lead       Lead     @relation(fields: [leadId], references: [id])
+  assignedAt DateTime
+
+  @@map("assigned_emails")
+}
+
+/// INV-4: sentCount changes ONLY via the conditional atomic UPDATE
+///   UPDATE ... SET sentCount = sentCount + 1
+///   WHERE brokerId=? AND localDate=? AND (capAtTime=0 OR sentCount<capAtTime)
+model BrokerDailyCounter {
+  brokerId  Int
+  localDate DateTime @db.Date
+  sentCount Int      @default(0)
+  capAtTime Int
+
+  broker Broker @relation(fields: [brokerId], references: [id], onDelete: Cascade)
+
+  @@id([brokerId, localDate])
+  @@map("broker_daily_counters")
+}
+
+model Outbox {
+  id            String       @id @db.Char(36)
+  type          String       @db.VarChar(64)
+  aggregateType String       @db.VarChar(32)
+  aggregateId   String       @db.VarChar(64)
+  payload       Json
+  traceId       String       @db.Char(32)
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  availableAt   DateTime     @default(now()) @db.DateTime(3)
+  claimedAt     DateTime?    @db.DateTime(3)
+  processedAt   DateTime?    @db.DateTime(3)
+  lastError     String?      @db.Text
+  createdAt     DateTime     @default(now()) @db.DateTime(3)
+
+  @@index([status, availableAt])
+  @@index([aggregateType, aggregateId])
+  @@index([traceId])
+  @@map("outbox")
+}
+
+model WorkerHeartbeat {
+  workerId       String   @id @db.VarChar(64)
+  lastBeatAt     DateTime @db.DateTime(3)
+  processedTotal Int      @default(0)
+  version        String   @db.VarChar(32)
+
+  @@map("worker_heartbeats")
+}
+
+model ConfigVersion {
+  id        Int      @id @default(1)
+  version   Int      @default(1)
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("config_versions")
+}

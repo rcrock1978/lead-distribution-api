@@ -1,0 +1,22 @@
+# Dependencies / builds
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Environment — real secrets NEVER enter git history
+.env
+.env.*
+!.env.example
+
+# Prisma
+prisma/*.db
+
+# Logs
+*.log
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
