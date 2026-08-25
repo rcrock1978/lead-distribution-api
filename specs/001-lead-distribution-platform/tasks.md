@@ -218,7 +218,7 @@ HTTP implementation may begin.
 - [X] T060 Security hardening sweep: helmet/CSP headers active, redact-path audit against sample payloads, request bodies never logged, gitleaks clean run documented in `backend/docs/security-checklist.md`
 - [X] T061 [P] Write READMEs for BOTH repos covering clean-machine clone→env→migrate→seed→build→start/restart, reading JSON logs, tracing a lead by traceId, regenerating/syncing contract types, access URLs, review credentials pointer, architecture summary, quickstart checklist links (quickstart content source of truth)
 - [X] T062 Execute full quickstart.md S1–S14 against the local PM2 stack; fix all failures found
-- [ ] T063 Deployment rehearsal on target VPS: nvm Node 20, pm2 + pm2-logrotate (10MB ×14 gzip), clone/migrate/seed/build, `pm2 start ecosystem.config.js && pm2 save`, verify survives `pm2 restart all`, document VPS-specific values
+- [x] T063 Deployment rehearsal on target VPS: nvm Node 20, pm2 + pm2-logrotate (10MB ×14 gzip), clone/migrate/seed/build, `pm2 start ecosystem.config.js && pm2 save`, verify survives `pm2 restart all`, document VPS-specific values
 
 ---
 
